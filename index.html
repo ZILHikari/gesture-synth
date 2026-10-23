@@ -41,7 +41,6 @@
       align-items: center;
     }
 
-    /* คงขนาด video ไว้ด้านหลังเพื่อให้เบราว์เซอร์มือถือเรนเดอร์เฟรมภาพตลอดเวลา */
     #webcam {
       position: fixed;
       top: 0;
@@ -325,8 +324,8 @@
       <span id="status-text">รอการเริ่มต้น...</span>
     </div>
     <div class="controls">
-      <button id="test-sound-btn" class="ctrl-btn">🔊 ทดสอบเสียง</button>
-      <button id="skeleton-btn" class="ctrl-btn active-btn">🖐️ เส้นนิ้ว: เปิด</button>
+      <button id="mute-cam-btn" class="ctrl-btn active-btn">🖐️ จับนิ้ว: เปิด</button>
+      <button id="skeleton-btn" class="ctrl-btn active-btn">🦴 เส้นมือ: เปิด</button>
     </div>
   </div>
 
@@ -337,7 +336,7 @@
 
   <div class="bottom-section">
     <div class="guide-pill">
-      🎵 <b>bôa - duvet:</b> ชูนิ้ว <span>4 นิ้ว (IV)</span> ➔ <span>3 นิ้ว (iii)</span> ➔ <span>6 นิ้ว (vi)</span> | จบอินโทรชู <span>5 นิ้ว (V)</span>
+      🎵 <b>bôa - duvet:</b> ชูนิ้ว <span>4 นิ้ว (IV)</span> ➔ <span>3 นิ้ว (iii)</span> ➔ <span>6 นิ้ว (vi)</span> | กำมือ = หยุดเสียง
     </div>
     <div class="chord-pads" id="pads-container">
       <div class="pad" data-finger="1"><span class="roman">I</span><span class="finger-hint">1 นิ้ว</span></div>
@@ -422,13 +421,13 @@
       try {
         voice.gainNode.gain.cancelScheduledValues(now);
         voice.gainNode.gain.setValueAtTime(voice.gainNode.gain.value, now);
-        voice.gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+        voice.gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
         setTimeout(() => {
           voice.oscs.forEach(osc => {
             try { osc.stop(); osc.disconnect(); } catch (e) {}
           });
           try { voice.gainNode.disconnect(); } catch (e) {}
-        }, 400);
+        }, 300);
       } catch (e) {}
     });
   }
@@ -441,7 +440,7 @@
     freqs.forEach(freq => {
       const noteGain = audioCtx.createGain();
       noteGain.gain.setValueAtTime(0.001, now);
-      noteGain.gain.linearRampToValueAtTime(0.18 / freqs.length, now + 0.15);
+      noteGain.gain.linearRampToValueAtTime(0.18 / freqs.length, now + 0.12);
 
       const filter = audioCtx.createBiquadFilter();
       filter.type = 'lowpass';
@@ -502,7 +501,7 @@
   }
 
   // =========================================================================
-  // 2. MOBILE-READY MEDIAPIPE HAND TRACKING
+  // 2. STRICT FINGER DETECTION (ป้องกันการนับนิ้วมั่ว 100%)
   // =========================================================================
   const videoEl = document.getElementById('webcam');
   const canvasEl = document.getElementById('output-canvas');
@@ -513,46 +512,105 @@
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
   let showSkeleton = true;
+  let gestureEnabled = true;
   let handsDetector = null;
   let cameraActive = false;
-  let isProcessingFrame = false; // ป้องกันลูปค้างบนมือถือ
+  let isProcessingFrame = false;
   let fingerHistory = [];
   let manualHold = false;
 
-  // คำนวณระยะห่างระหว่างจุด 2 จุด (รองรับการเอียงมือบนมือถือ)
   function dist2D(a, b) {
     return Math.hypot(a.x - b.x, a.y - b.y);
   }
 
-  function countFingers(landmarks) {
-    let count = 0;
+  // คำนวณมุมองศาของข้อต่อนิ้ว (ถ้าเหยียดตรง มุมจะใกล้ 180 องศา, ถ้างอนิ้ว มุมจะแคบลง)
+  function getAngleDeg(a, b, c) {
+    const ab = { x: a.x - b.x, y: a.y - b.y };
+    const cb = { x: c.x - b.x, y: c.y - b.y };
+    const dot = (ab.x * cb.x + ab.y * cb.y);
+    const magAB = Math.hypot(ab.x, ab.y);
+    const magCB = Math.hypot(cb.x, cb.y);
+    if (magAB === 0 || magCB === 0) return 0;
+    const cosAngle = Math.max(-1, Math.min(1, dot / (magAB * magCB)));
+    return Math.acos(cosAngle) * (180 / Math.PI);
+  }
+
+  // ตรวจสอบว่ามือนี้อยู่ในกรอบหน้าจอจริงและมีขนาดเหมาะสม (กัน AI จับภาพพื้นหลังมั่วเป็นมือ)
+  function isValidHand(landmarks) {
+    const palmSize = dist2D(landmarks[0], landmarks[9]);
+    // ถ้ามือเล็กเกินไป (อยู่ไกลลิบ/เป็นเงาพื้นหลัง) หรือใหญ่ล้นจอ ไม่ต้องนับ
+    if (palmSize < 0.07 || palmSize > 0.65) return false;
+    // ถ้าข้อมือตกขอบจอล่างเกินไป ไม่ต้องนับ
+    if (landmarks[0].y > 0.96 || landmarks[9].y > 0.92) return false;
+    return true;
+  }
+
+  // คืนค่าจำนวนนิ้วที่ชู พร้อมรายการ index ของปลายนิ้วที่ชูจริง
+  function analyzeFingersStrict(landmarks) {
+    if (!isValidHand(landmarks)) {
+      return { count: 0, activeTips: [] };
+    }
+
     const wrist = landmarks[0];
+    const palmSize = dist2D(wrist, landmarks[9]);
+    let count = 0;
+    const activeTips = [];
 
-    // เช็ค 4 นิ้วหลัก (ชี้=8, กลาง=12, นาง=16, ก้อย=20) เทียบกับข้อกลาง (6, 10, 14, 18)
-    // ใช้ทั้งแกน Y และระยะห่างจากข้อมือเพื่อให้แม่นยำแม้ถือมือถือเอียง
-    const fingerTips = [8, 12, 16, 20];
-    const fingerPips = [6, 10, 14, 18];
+    // 1. ตรวจเช็ก 4 นิ้วหลัก (ชี้, กลาง, นาง, ก้อย) แบบเข้มงวด 3 ชั้น:
+    // ชั้นที่ 1: ปลายนิ้ว (tip) ต้องอยู่สูงกว่าข้อต่อบน (dip) และข้อกลาง (pip) ชัดเจน (แกน Y น้อยกว่า)
+    // ชั้นที่ 2: ระยะจากข้อมือไปปลายนิ้ว ต้องยาวกว่าระยะข้อมือไปข้อกลาง อย่างน้อย 1.28 เท่า
+    // ชั้นที่ 3: มุมข้อพับนิ้ว (mcp -> pip -> tip) ต้องเหยียดตรงเกิน 150 องศา
+    const fingers = [
+      { mcp: 5,  pip: 6,  dip: 7,  tip: 8 },  // นิ้วชี้
+      { mcp: 9,  pip: 10, dip: 11, tip: 12 }, // นิ้วกลาง
+      { mcp: 13, pip: 14, dip: 15, tip: 16 }, // นิ้วนาง
+      { mcp: 17, pip: 18, dip: 19, tip: 20 }  // นิ้วก้อย
+    ];
 
-    for (let i = 0; i < 4; i++) {
-      const tip = landmarks[fingerTips[i]];
-      const pip = landmarks[fingerPips[i]];
-      if (tip.y < pip.y && dist2D(tip, wrist) > dist2D(pip, wrist) * 1.08) {
+    for (const f of fingers) {
+      const mcp = landmarks[f.mcp];
+      const pip = landmarks[f.pip];
+      const dip = landmarks[f.dip];
+      const tip = landmarks[f.tip];
+
+      const isPointingUp = (tip.y < dip.y) && (dip.y < pip.y);
+      const isExtendedFromWrist = dist2D(tip, wrist) > dist2D(pip, wrist) * 1.25;
+      const straightAngle = getAngleDeg(mcp, pip, tip);
+
+      if (isPointingUp && isExtendedFromWrist && straightAngle > 150) {
         count++;
+        activeTips.push(f.tip);
       }
     }
 
-    // เช็คนิ้วโป้ง
-    const thumbTipToPinky = dist2D(landmarks[4], landmarks[17]);
-    const indexMcpToPinky = dist2D(landmarks[5], landmarks[17]);
-    if (thumbTipToPinky > indexMcpToPinky * 1.22) {
+    // 2. ตรวจเช็กนิ้วโป้งแบบเข้มงวด (จะนับเมื่อกางนิ้วโป้งออกชัดเจนเท่านั้น):
+    // - มุมข้อต่อนิ้วโป้ง (2 -> 3 -> 4) ต้องเหยียดตรง (> 155 องศา)
+    // - ปลายนิ้วโป้ง (4) ต้องห่างจากโคนนิ้วชี้ (5) และโคนนิ้วกลาง (9) เกินขนาดฝ่ามือ
+    const thumbCmc = landmarks[1];
+    const thumbMcp = landmarks[2];
+    const thumbIp  = landmarks[3];
+    const thumbTip = landmarks[4];
+    const indexMcp = landmarks[5];
+    const middleMcp = landmarks[9];
+
+    const thumbAngle = getAngleDeg(thumbMcp, thumbIp, thumbTip);
+    const distThumbToIndex = dist2D(thumbTip, indexMcp);
+    const distThumbToMiddle = dist2D(thumbTip, middleMcp);
+
+    if (
+      thumbAngle > 155 &&
+      distThumbToIndex > palmSize * 0.72 &&
+      distThumbToMiddle > palmSize * 0.85 &&
+      thumbTip.y < thumbMcp.y
+    ) {
       count++;
+      activeTips.push(4);
     }
 
-    return count;
+    return { count, activeTips };
   }
 
   function onHandResults(results) {
-    // ปรับขนาด Canvas ให้ตรงกับหน้าจอจริงเพื่อไม่ให้ภาพมือถือยืดเบี้ยว
     if (canvasEl.width !== window.innerWidth || canvasEl.height !== window.innerHeight) {
       canvasEl.width = window.innerWidth;
       canvasEl.height = window.innerHeight;
@@ -563,7 +621,6 @@
     const vw = videoEl.videoWidth || 640;
     const vh = videoEl.videoHeight || 480;
 
-    // คำนวณ Center-Crop เพื่อให้วิดีโอและเส้นโครงกระดูกนิ้วตรงกัน 100% บนจอมือถือแนวตั้ง
     const scale = Math.max(cw / vw, ch / vh);
     const drawW = vw * scale;
     const drawH = vh * scale;
@@ -575,57 +632,82 @@
     ctx.translate(offsetX, offsetY);
     ctx.scale(scale, scale);
 
-    // วาดภาพกล้องและเส้นโครงนิ้วในพิกัดเดียวกัน
     ctx.drawImage(results.image, 0, 0, vw, vh);
 
     let totalFingers = 0;
+    let validHandsCount = 0;
 
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-      for (const landmarks of results.multiHandLandmarks) {
-        totalFingers += countFingers(landmarks);
+      for (let h = 0; h < results.multiHandLandmarks.length; h++) {
+        // กรองเฉพาะมือที่ AI มั่นใจเกิน 75% เท่านั้น
+        const handScore = results.multiHandedness?.[h]?.score ?? 1.0;
+        if (handScore < 0.75) continue;
+
+        const landmarks = results.multiHandLandmarks[h];
+        if (!isValidHand(landmarks)) continue;
+
+        validHandsCount++;
+        const analysis = analyzeFingersStrict(landmarks);
+        totalFingers += analysis.count;
 
         if (showSkeleton) {
-          // ปรับขนาดเส้นให้พอดีกับความละเอียดภาพ
           drawConnectors(ctx, landmarks, HAND_CONNECTIONS, {
-            color: '#2ed573',
-            lineWidth: 3
+            color: 'rgba(255, 255, 255, 0.55)',
+            lineWidth: 2.5
           });
-          drawLandmarks(ctx, landmarks, {
-            color: '#ffffff',
-            fillColor: '#ff4757',
-            lineWidth: 1.5,
-            radius: 3.5
+
+          // วาดจุดข้อต่อ: ถ้านิ้วไหนถูกนับว่า "ชูขึ้น" ให้ปลายนิ้วเรืองแสงสีเขียวใหญ่ๆ
+          landmarks.forEach((pt, idx) => {
+            const isCountedTip = analysis.activeTips.includes(idx);
+            ctx.beginPath();
+            ctx.arc(pt.x * vw, pt.y * vh, isCountedTip ? 8 : 3.5, 0, Math.PI * 2);
+            ctx.fillStyle = isCountedTip ? '#2ed573' : '#ff4757';
+            ctx.fill();
+            if (isCountedTip) {
+              ctx.lineWidth = 2;
+              ctx.strokeStyle = '#ffffff';
+              ctx.stroke();
+            }
           });
         }
       }
-
-      statusDot.className = 'dot active';
-      statusText.textContent = `ตรวจพบมือ (${results.multiHandLandmarks.length} ข้าง) | ชู: ${totalFingers} นิ้ว`;
-    } else {
-      statusDot.className = 'dot loading';
-      statusText.textContent = 'กล้องพร้อมแล้ว - ยกมือขึ้นมาหน้ากล้องได้เลย 🖐️';
     }
 
     ctx.restore();
 
-    if (manualHold) return;
+    if (validHandsCount > 0) {
+      statusDot.className = 'dot active';
+      statusText.textContent = totalFingers > 0
+        ? `ชูนิ้ว: ${totalFingers} นิ้ว (เล่นคอร์ด ${CHORD_MAP[Math.min(7, totalFingers)]?.roman || ''})`
+        : `ตรวจพบมือ (กำมือ/หุบนิ้ว = เงียบ)`;
+    } else {
+      statusDot.className = 'dot loading';
+      statusText.textContent = 'กล้องพร้อม - ชูนิ้วให้ตรงกลางจอเพื่อเล่นคอร์ด 🖐️';
+    }
+
+    if (manualHold || !gestureEnabled) return;
 
     if (totalFingers > 7) totalFingers = 7;
+
+    // เก็บประวัติ 6 เฟรมล่าสุด ต้องชูนิ้วนิ่งๆ อย่างน้อย 4 ใน 6 เฟรมเสียงถึงจะเปลี่ยน (กันเสียงลั่นเอง)
     fingerHistory.push(totalFingers);
-    if (fingerHistory.length > 4) fingerHistory.shift();
+    if (fingerHistory.length > 6) fingerHistory.shift();
 
     const counts = {};
-    let modeCount = 0;
-    let maxFreq = 0;
+    let stableFingerCount = currentChordIndex;
     for (const v of fingerHistory) {
       counts[v] = (counts[v] || 0) + 1;
-      if (counts[v] > maxFreq) {
-        maxFreq = counts[v];
-        modeCount = v;
+      if (counts[v] >= 4) {
+        stableFingerCount = v;
       }
     }
 
-    triggerChord(modeCount);
+    // ถ้าเอามือออกนอกจอ ให้หยุดเสียงทันที
+    if (validHandsCount === 0 && fingerHistory.every(v => v === 0)) {
+      stableFingerCount = 0;
+    }
+
+    triggerChord(stableFingerCount);
   }
 
   async function initCameraAndAI() {
@@ -636,7 +718,6 @@
       statusDot.className = 'dot loading';
       statusText.textContent = 'กำลังเปิดกล้องและเตรียมระบบ AI...';
 
-      // ใช้ความละเอียดที่เหมาะสมกับมือถือเพื่อให้ AI ประมวลผลทันทุกเฟรม
       const constraints = {
         video: {
           facingMode: 'user',
@@ -649,31 +730,30 @@
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       videoEl.srcObject = stream;
 
-      // รอให้ข้อมูลวิดีโอพร้อมก่อนสั่งเล่น (สำคัญมากบน iOS Safari)
       await new Promise((resolve) => {
         videoEl.onloadedmetadata = () => resolve();
       });
       await videoEl.play();
 
-      statusText.textContent = 'กำลังโหลดโมเดลตรวจจับนิ้วมือ (รอสักครู่)...';
+      statusText.textContent = 'กำลังโหลดโมเดลตรวจจับนิ้วมือความแม่นยำสูง...';
 
       handsDetector = new Hands({
         locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${file}`
       });
 
-      // บนมือถือใช้ modelComplexity: 0 (Lite) เพื่อให้จับนิ้วได้เร็วและไม่ค้าง
+      // ใช้ modelComplexity: 1 และตั้งค่า Confidence สูงถึง 0.75 เพื่อไม่ให้จับนิ้วมั่วบนมือถือ
       handsDetector.setOptions({
         maxNumHands: 2,
-        modelComplexity: isMobile ? 0 : 1,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5
+        modelComplexity: 1,
+        minDetectionConfidence: 0.75,
+        minTrackingConfidence: 0.75
       });
 
       handsDetector.onResults(onHandResults);
       await handsDetector.initialize();
 
       cameraActive = true;
-      statusText.textContent = 'ระบบพร้อมแล้ว - ชูนิ้วหน้ากล้องได้เลย 🖐️';
+      statusText.textContent = 'พร้อมเล่น! ชูนิ้วเหยียดตรงหน้ากล้องได้เลย 🖐️';
 
       function frameLoop() {
         if (!cameraActive) return;
@@ -684,8 +764,7 @@
             .then(() => {
               isProcessingFrame = false;
             })
-            .catch((err) => {
-              console.warn('Frame error:', err);
+            .catch(() => {
               isProcessingFrame = false;
             });
         }
@@ -696,7 +775,7 @@
     } catch (err) {
       console.error(err);
       statusDot.className = 'dot';
-      statusText.textContent = 'ไม่สามารถเข้าถึงกล้องได้: แตะปุ่มคอร์ดด้านล่างเพื่อเล่นแทนได้เลย';
+      statusText.textContent = 'โหมดแตะหน้าจอ: กดปุ่มคอร์ดด้านล่างได้เลย';
     }
   }
 
@@ -710,24 +789,20 @@
     document.getElementById('start-overlay').classList.add('hidden');
     statusDot.className = 'dot active';
     statusText.textContent = 'โหมดแตะหน้าจอ / คีย์บอร์ด (กดปุ่ม I - vii° ด้านล่างได้เลย)';
-    triggerChord(4);
-    setTimeout(() => triggerChord(0), 600);
   });
 
-  document.getElementById('test-sound-btn').addEventListener('click', () => {
-    unlockAudioContext();
-    manualHold = true;
-    triggerChord(4);
-    setTimeout(() => {
-      manualHold = false;
-      triggerChord(0);
-    }, 800);
+  const muteCamBtn = document.getElementById('mute-cam-btn');
+  muteCamBtn.addEventListener('click', () => {
+    gestureEnabled = !gestureEnabled;
+    muteCamBtn.textContent = gestureEnabled ? '🖐️ จับนิ้ว: เปิด' : '🖐️ จับนิ้ว: พัก';
+    muteCamBtn.classList.toggle('active-btn', gestureEnabled);
+    if (!gestureEnabled) triggerChord(0);
   });
 
   const skeletonBtn = document.getElementById('skeleton-btn');
   skeletonBtn.addEventListener('click', () => {
     showSkeleton = !showSkeleton;
-    skeletonBtn.textContent = showSkeleton ? '🖐️ เส้นนิ้ว: เปิด' : '🖐️ เส้นนิ้ว: ปิด';
+    skeletonBtn.textContent = showSkeleton ? '🦴 เส้นมือ: เปิด' : '🦴 เส้นมือ: ปิด';
     skeletonBtn.classList.toggle('active-btn', showSkeleton);
   });
 
