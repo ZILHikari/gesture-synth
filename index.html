@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Gesture Synth - bôa Duvet Edition</title>
-  <!-- MediaPipe Hands & Drawing Utils (Pinned Stable Versions) -->
+  <!-- MediaPipe Hands & Drawing Utils -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1620248257/drawing_utils.js" crossorigin="anonymous"></script>
   
@@ -41,15 +41,16 @@
       align-items: center;
     }
 
-    /* ซ่อนตัว video ต้นฉบับ แต่คงขนาดไว้เพื่อให้ iOS Safari อ่านเฟรมได้ */
+    /* คงขนาด video ไว้ด้านหลังเพื่อให้เบราว์เซอร์มือถือเรนเดอร์เฟรมภาพตลอดเวลา */
     #webcam {
-      position: absolute;
+      position: fixed;
       top: 0;
       left: 0;
-      width: 1px;
-      height: 1px;
-      opacity: 0;
+      width: 160px;
+      height: 120px;
+      opacity: 0.01;
       pointer-events: none;
+      z-index: -1;
     }
 
     #output-canvas {
@@ -58,16 +59,15 @@
       left: 0;
       width: 100%;
       height: 100%;
-      object-fit: cover;
       transform: scaleX(-1);
       z-index: 1;
     }
 
-    /* หน้าจอเริ่มต้น (บังคับกดเพื่อปลดล็อกเสียงบน iOS / Android / Desktop ทุกแพลตฟอร์ม) */
+    /* หน้าจอเริ่มต้น */
     #start-overlay {
       position: fixed;
       inset: 0;
-      background: radial-gradient(circle at center, rgba(16, 24, 32, 0.92), rgba(5, 7, 10, 0.98));
+      background: radial-gradient(circle at center, rgba(16, 24, 32, 0.94), rgba(5, 7, 10, 0.98));
       z-index: 100;
       display: flex;
       flex-direction: column;
@@ -142,11 +142,11 @@
       position: relative;
       z-index: 10;
       width: 100%;
-      padding: 14px 18px;
+      padding: 12px 14px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+      background: linear-gradient(to bottom, rgba(0,0,0,0.85), transparent);
       flex-wrap: wrap;
       gap: 8px;
     }
@@ -154,12 +154,12 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      background: rgba(0, 0, 0, 0.65);
+      background: rgba(0, 0, 0, 0.7);
       padding: 7px 14px;
       border-radius: 30px;
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.18);
       backdrop-filter: blur(8px);
-      font-size: 13px;
+      font-size: 12px;
     }
     .dot {
       width: 10px;
@@ -174,23 +174,22 @@
 
     .controls {
       display: flex;
-      gap: 8px;
+      gap: 6px;
       flex-wrap: wrap;
     }
     .ctrl-btn {
-      background: rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.14);
       color: #fff;
       border: 1px solid rgba(255, 255, 255, 0.25);
-      padding: 7px 14px;
+      padding: 6px 12px;
       border-radius: 20px;
       cursor: pointer;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
       backdrop-filter: blur(8px);
-      transition: all 0.2s;
     }
     .ctrl-btn.active-btn {
-      background: rgba(46, 213, 115, 0.25);
+      background: rgba(46, 213, 115, 0.28);
       border-color: #2ed573;
       color: #2ed573;
     }
@@ -199,7 +198,7 @@
     #chord-display {
       position: relative;
       z-index: 10;
-      font-size: clamp(64px, 15vw, 96px);
+      font-size: clamp(68px, 16vw, 96px);
       font-weight: 800;
       color: #2ed573;
       text-shadow: 0 0 20px rgba(46, 213, 115, 0.9), 0 0 45px rgba(46, 213, 115, 0.6);
@@ -215,8 +214,8 @@
     #chord-display .chord-sub {
       font-size: 16px;
       font-weight: 600;
-      color: rgba(255, 255, 255, 0.75);
-      text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+      color: rgba(255, 255, 255, 0.8);
+      text-shadow: 0 2px 8px rgba(0,0,0,0.9);
       margin-top: -6px;
       letter-spacing: 1px;
     }
@@ -238,7 +237,7 @@
     }
 
     .guide-pill {
-      background: rgba(0, 0, 0, 0.65);
+      background: rgba(0, 0, 0, 0.68);
       border: 1px solid rgba(255, 255, 255, 0.15);
       padding: 6px 14px;
       border-radius: 20px;
@@ -247,7 +246,7 @@
       margin-bottom: 10px;
       backdrop-filter: blur(6px);
       text-align: center;
-      max-width: 92%;
+      max-width: 94%;
     }
     .guide-pill span { color: #2ed573; font-weight: bold; }
 
@@ -266,7 +265,7 @@
       min-width: 44px;
       max-width: 64px;
       height: 56px;
-      background: rgba(20, 20, 25, 0.72);
+      background: rgba(20, 20, 25, 0.75);
       border: 1px solid rgba(255, 255, 255, 0.22);
       border-radius: 12px;
       display: flex;
@@ -282,13 +281,13 @@
     .pad .finger-hint { font-size: 10px; color: #aaa; margin-top: 2px; pointer-events: none; }
     
     .pad.playing {
-      background: rgba(46, 213, 115, 0.32);
+      background: rgba(46, 213, 115, 0.35);
       border-color: #2ed573;
-      box-shadow: 0 0 16px rgba(46, 213, 115, 0.55);
+      box-shadow: 0 0 16px rgba(46, 213, 115, 0.6);
       transform: translateY(-4px);
     }
     .pad.playing-v {
-      background: rgba(255, 165, 2, 0.32);
+      background: rgba(255, 165, 2, 0.35);
       border-color: #ffa502;
       box-shadow: 0 0 16px rgba(255, 165, 2, 0.65);
       transform: translateY(-4px);
@@ -303,7 +302,6 @@
 </head>
 <body>
 
-<!-- หน้าจอต้อนรับเพื่อปลดล็อกระบบเสียง Web Audio API บนทุกแพลตฟอร์ม -->
 <div id="start-overlay">
   <div class="overlay-card">
     <div class="overlay-title">✨ Gesture Synth</div>
@@ -321,7 +319,6 @@
   <video id="webcam" playsinline webkit-playsinline muted autoplay></video>
   <canvas id="output-canvas"></canvas>
 
-  <!-- แถบควบคุมด้านบน -->
   <div class="top-bar">
     <div class="status-box">
       <div id="status-dot" class="dot"></div>
@@ -333,13 +330,11 @@
     </div>
   </div>
 
-  <!-- ตัวเลขโรมันกลางจอ -->
   <div id="chord-display">
     <div id="chord-roman"></div>
     <div id="chord-name" class="chord-sub"></div>
   </div>
 
-  <!-- โซนปุ่มคอร์ดและคลื่นเสียงด้านล่าง -->
   <div class="bottom-section">
     <div class="guide-pill">
       🎵 <b>bôa - duvet:</b> ชูนิ้ว <span>4 นิ้ว (IV)</span> ➔ <span>3 นิ้ว (iii)</span> ➔ <span>6 นิ้ว (vi)</span> | จบอินโทรชู <span>5 นิ้ว (V)</span>
@@ -359,16 +354,16 @@
 
 <script>
   // =========================================================================
-  // 1. NATIVE WEB AUDIO SYNTH ENGINE (ทำงานได้ 100% บน iOS/Android/PC ไม่พึ่งไลบรารีภายนอก)
+  // 1. NATIVE WEB AUDIO SYNTH ENGINE
   // =========================================================================
   const CHORD_MAP = {
-    1: { roman: 'I',    name: 'Emaj7',  freqs: [164.81, 246.94, 311.13, 415.30] },         // E3, B3, D#4, G#4
-    2: { roman: 'ii',   name: 'F#m7',   freqs: [185.00, 220.00, 277.18, 329.63] },         // F#3, A3, C#4, E4
-    3: { roman: 'iii',  name: 'G#m7',   freqs: [207.65, 246.94, 311.13, 369.99] },         // G#3, B3, D#4, F#4
-    4: { roman: 'IV',   name: 'Amaj7',  freqs: [110.00, 164.81, 207.65, 277.18, 329.63] }, // A2, E3, G#3, C#4, E4
-    5: { roman: 'V',    name: 'B7',     freqs: [123.47, 185.00, 220.00, 311.13, 369.99] }, // B2, F#3, A3, D#4, F#4
-    6: { roman: 'vi',   name: 'C#m7',   freqs: [138.59, 207.65, 246.94, 329.63, 415.30] }, // C#3, G#3, B3, E4, G#4
-    7: { roman: 'vii°', name: 'D#m7b5', freqs: [155.56, 220.00, 277.18, 369.99] }          // D#3, A3, C#4, F#4
+    1: { roman: 'I',    name: 'Emaj7',  freqs: [164.81, 246.94, 311.13, 415.30] },
+    2: { roman: 'ii',   name: 'F#m7',   freqs: [185.00, 220.00, 277.18, 329.63] },
+    3: { roman: 'iii',  name: 'G#m7',   freqs: [207.65, 246.94, 311.13, 369.99] },
+    4: { roman: 'IV',   name: 'Amaj7',  freqs: [110.00, 164.81, 207.65, 277.18, 329.63] },
+    5: { roman: 'V',    name: 'B7',     freqs: [123.47, 185.00, 220.00, 311.13, 369.99] },
+    6: { roman: 'vi',   name: 'C#m7',   freqs: [138.59, 207.65, 246.94, 329.63, 415.30] },
+    7: { roman: 'vii°', name: 'D#m7b5', freqs: [155.56, 220.00, 277.18, 369.99] }
   };
 
   let audioCtx = null;
@@ -377,7 +372,6 @@
   let activeVoices = [];
   let currentChordIndex = 0;
 
-  // ปลดล็อกเสียงสำหรับ iOS Safari / Android Chrome / Desktop ทุกเบราว์เซอร์
   function unlockAudioContext() {
     if (!audioCtx) {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -389,7 +383,6 @@
       analyser = audioCtx.createAnalyser();
       analyser.fftSize = 256;
 
-      // สร้าง Delay Reverb จำลองเสียง Lush Dreamy Pad
       const delay = audioCtx.createDelay();
       delay.delayTime.value = 0.18;
       const feedback = audioCtx.createGain();
@@ -412,7 +405,6 @@
       audioCtx.resume();
     }
 
-    // เล่นบัฟเฟอร์เงียบ 1 ตัวอย่างเพื่อบังคับปลดล็อกฮาร์ดแวร์เสียงบน iOS
     const buffer = audioCtx.createBuffer(1, 1, 22050);
     const source = audioCtx.createBufferSource();
     source.buffer = buffer;
@@ -455,7 +447,6 @@
       filter.type = 'lowpass';
       filter.frequency.setValueAtTime(1950, now);
 
-      // ใช้ 3 Oscillators ซ้อนกัน (Detuned Sawtooth + Triangle) ให้มิติเสียงแบบ Lush Pad ในคลิป
       const detunes = [-9, 0, 9];
       const oscs = detunes.map((detune, idx) => {
         const osc = audioCtx.createOscillator();
@@ -511,7 +502,7 @@
   }
 
   // =========================================================================
-  // 2. MEDIAPIPE HAND TRACKING (รองรับทั้งกล้องมือถือและคอมพิวเตอร์)
+  // 2. MOBILE-READY MEDIAPIPE HAND TRACKING
   // =========================================================================
   const videoEl = document.getElementById('webcam');
   const canvasEl = document.getElementById('output-canvas');
@@ -519,34 +510,41 @@
   const statusDot = document.getElementById('status-dot');
   const statusText = document.getElementById('status-text');
 
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
   let showSkeleton = true;
   let handsDetector = null;
   let cameraActive = false;
+  let isProcessingFrame = false; // ป้องกันลูปค้างบนมือถือ
   let fingerHistory = [];
-  let manualHold = false; // ป้องกันกล้องตัดเสียงเวลาผู้ใช้กดปุ่มคอร์ดค้างไว้เอง
+  let manualHold = false;
+
+  // คำนวณระยะห่างระหว่างจุด 2 จุด (รองรับการเอียงมือบนมือถือ)
+  function dist2D(a, b) {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
 
   function countFingers(landmarks) {
     let count = 0;
+    const wrist = landmarks[0];
+
+    // เช็ค 4 นิ้วหลัก (ชี้=8, กลาง=12, นาง=16, ก้อย=20) เทียบกับข้อกลาง (6, 10, 14, 18)
+    // ใช้ทั้งแกน Y และระยะห่างจากข้อมือเพื่อให้แม่นยำแม้ถือมือถือเอียง
     const fingerTips = [8, 12, 16, 20];
     const fingerPips = [6, 10, 14, 18];
 
     for (let i = 0; i < 4; i++) {
-      if (landmarks[fingerTips[i]].y < landmarks[fingerPips[i]].y) {
+      const tip = landmarks[fingerTips[i]];
+      const pip = landmarks[fingerPips[i]];
+      if (tip.y < pip.y && dist2D(tip, wrist) > dist2D(pip, wrist) * 1.08) {
         count++;
       }
     }
 
-    // ตรวจจับนิ้วโป้งโดยเทียบระยะห่างจากโคนนิ้วก้อย
-    const thumbTipToPinky = Math.hypot(
-      landmarks[4].x - landmarks[17].x,
-      landmarks[4].y - landmarks[17].y
-    );
-    const indexMcpToPinky = Math.hypot(
-      landmarks[5].x - landmarks[17].x,
-      landmarks[5].y - landmarks[17].y
-    );
-
-    if (thumbTipToPinky > indexMcpToPinky * 1.25) {
+    // เช็คนิ้วโป้ง
+    const thumbTipToPinky = dist2D(landmarks[4], landmarks[17]);
+    const indexMcpToPinky = dist2D(landmarks[5], landmarks[17]);
+    if (thumbTipToPinky > indexMcpToPinky * 1.22) {
       count++;
     }
 
@@ -554,14 +552,31 @@
   }
 
   function onHandResults(results) {
-    if (canvasEl.width !== videoEl.videoWidth || canvasEl.height !== videoEl.videoHeight) {
-      canvasEl.width = videoEl.videoWidth || 640;
-      canvasEl.height = videoEl.videoHeight || 480;
+    // ปรับขนาด Canvas ให้ตรงกับหน้าจอจริงเพื่อไม่ให้ภาพมือถือยืดเบี้ยว
+    if (canvasEl.width !== window.innerWidth || canvasEl.height !== window.innerHeight) {
+      canvasEl.width = window.innerWidth;
+      canvasEl.height = window.innerHeight;
     }
 
+    const cw = canvasEl.width;
+    const ch = canvasEl.height;
+    const vw = videoEl.videoWidth || 640;
+    const vh = videoEl.videoHeight || 480;
+
+    // คำนวณ Center-Crop เพื่อให้วิดีโอและเส้นโครงกระดูกนิ้วตรงกัน 100% บนจอมือถือแนวตั้ง
+    const scale = Math.max(cw / vw, ch / vh);
+    const drawW = vw * scale;
+    const drawH = vh * scale;
+    const offsetX = (cw - drawW) / 2;
+    const offsetY = (ch - drawH) / 2;
+
     ctx.save();
-    ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
-    ctx.drawImage(results.image, 0, 0, canvasEl.width, canvasEl.height);
+    ctx.clearRect(0, 0, cw, ch);
+    ctx.translate(offsetX, offsetY);
+    ctx.scale(scale, scale);
+
+    // วาดภาพกล้องและเส้นโครงนิ้วในพิกัดเดียวกัน
+    ctx.drawImage(results.image, 0, 0, vw, vh);
 
     let totalFingers = 0;
 
@@ -570,15 +585,16 @@
         totalFingers += countFingers(landmarks);
 
         if (showSkeleton) {
+          // ปรับขนาดเส้นให้พอดีกับความละเอียดภาพ
           drawConnectors(ctx, landmarks, HAND_CONNECTIONS, {
             color: '#2ed573',
-            lineWidth: 4
+            lineWidth: 3
           });
           drawLandmarks(ctx, landmarks, {
             color: '#ffffff',
             fillColor: '#ff4757',
-            lineWidth: 2,
-            radius: 4
+            lineWidth: 1.5,
+            radius: 3.5
           });
         }
       }
@@ -587,18 +603,17 @@
       statusText.textContent = `ตรวจพบมือ (${results.multiHandLandmarks.length} ข้าง) | ชู: ${totalFingers} นิ้ว`;
     } else {
       statusDot.className = 'dot loading';
-      statusText.textContent = 'กล้องพร้อมแล้ว - ชูนิ้วหน้ากล้องได้เลย 🖐️';
+      statusText.textContent = 'กล้องพร้อมแล้ว - ยกมือขึ้นมาหน้ากล้องได้เลย 🖐️';
     }
 
     ctx.restore();
 
-    if (manualHold) return; // ถ้ากำลังแตะปุ่มบนจอค้างไว้ ให้ยึดตามปุ่มที่แตะ
+    if (manualHold) return;
 
     if (totalFingers > 7) totalFingers = 7;
     fingerHistory.push(totalFingers);
-    if (fingerHistory.length > 5) fingerHistory.shift();
+    if (fingerHistory.length > 4) fingerHistory.shift();
 
-    // หาค่าฐานนิยม (Mode) เพื่อป้องกันเลขคอร์ดกระพริบ
     const counts = {};
     let modeCount = 0;
     let maxFreq = 0;
@@ -619,55 +634,74 @@
 
     try {
       statusDot.className = 'dot loading';
-      statusText.textContent = 'กำลังขอสิทธิ์กล้องและโหลดโมเดล AI...';
+      statusText.textContent = 'กำลังเปิดกล้องและเตรียมระบบ AI...';
 
-      const stream = await navigator.mediaDevices.getUserMedia({
+      // ใช้ความละเอียดที่เหมาะสมกับมือถือเพื่อให้ AI ประมวลผลทันทุกเฟรม
+      const constraints = {
         video: {
           facingMode: 'user',
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
+          width: { ideal: isMobile ? 640 : 1280 },
+          height: { ideal: isMobile ? 480 : 720 }
         },
         audio: false
-      });
+      };
 
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       videoEl.srcObject = stream;
+
+      // รอให้ข้อมูลวิดีโอพร้อมก่อนสั่งเล่น (สำคัญมากบน iOS Safari)
+      await new Promise((resolve) => {
+        videoEl.onloadedmetadata = () => resolve();
+      });
       await videoEl.play();
+
+      statusText.textContent = 'กำลังโหลดโมเดลตรวจจับนิ้วมือ (รอสักครู่)...';
 
       handsDetector = new Hands({
         locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${file}`
       });
 
+      // บนมือถือใช้ modelComplexity: 0 (Lite) เพื่อให้จับนิ้วได้เร็วและไม่ค้าง
       handsDetector.setOptions({
         maxNumHands: 2,
-        modelComplexity: 1,
-        minDetectionConfidence: 0.6,
-        minTrackingConfidence: 0.6
+        modelComplexity: isMobile ? 0 : 1,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
       });
 
       handsDetector.onResults(onHandResults);
-      cameraActive = true;
+      await handsDetector.initialize();
 
-      async function frameLoop() {
-        if (cameraActive && videoEl.readyState >= 2) {
-          try {
-            await handsDetector.send({ image: videoEl });
-          } catch (e) {}
+      cameraActive = true;
+      statusText.textContent = 'ระบบพร้อมแล้ว - ชูนิ้วหน้ากล้องได้เลย 🖐️';
+
+      function frameLoop() {
+        if (!cameraActive) return;
+
+        if (!isProcessingFrame && videoEl.readyState >= 2 && videoEl.videoWidth > 0) {
+          isProcessingFrame = true;
+          handsDetector.send({ image: videoEl })
+            .then(() => {
+              isProcessingFrame = false;
+            })
+            .catch((err) => {
+              console.warn('Frame error:', err);
+              isProcessingFrame = false;
+            });
         }
-        if (cameraActive) {
-          requestAnimationFrame(frameLoop);
-        }
+        requestAnimationFrame(frameLoop);
       }
       requestAnimationFrame(frameLoop);
 
     } catch (err) {
       console.error(err);
       statusDot.className = 'dot';
-      statusText.textContent = 'โหมดไร้กล้อง: แตะปุ่มคอร์ดด้านล่าง หรือกดเลข 1-7 ได้เลย';
+      statusText.textContent = 'ไม่สามารถเข้าถึงกล้องได้: แตะปุ่มคอร์ดด้านล่างเพื่อเล่นแทนได้เลย';
     }
   }
 
   // =========================================================================
-  // 3. EVENT LISTENERS (รองรับทั้ง Touch มือถือ, เมาส์ และคีย์บอร์ด)
+  // 3. EVENT LISTENERS
   // =========================================================================
   document.getElementById('overlay-start-cam-btn').addEventListener('click', initCameraAndAI);
 
@@ -676,7 +710,6 @@
     document.getElementById('start-overlay').classList.add('hidden');
     statusDot.className = 'dot active';
     statusText.textContent = 'โหมดแตะหน้าจอ / คีย์บอร์ด (กดปุ่ม I - vii° ด้านล่างได้เลย)';
-    // เล่นคอร์ด IV สั้นๆ เพื่อยืนยันว่าเสียงออกแล้ว
     triggerChord(4);
     setTimeout(() => triggerChord(0), 600);
   });
@@ -684,7 +717,7 @@
   document.getElementById('test-sound-btn').addEventListener('click', () => {
     unlockAudioContext();
     manualHold = true;
-    triggerChord(4); // เล่นคอร์ด IV (Amaj7)
+    triggerChord(4);
     setTimeout(() => {
       manualHold = false;
       triggerChord(0);
@@ -698,7 +731,6 @@
     skeletonBtn.classList.toggle('active-btn', showSkeleton);
   });
 
-  // รองรับทั้งเมาส์และหน้าจอสัมผัส (Pointer & Touch Events)
   document.querySelectorAll('.pad').forEach(pad => {
     const finger = parseInt(pad.getAttribute('data-finger'));
 
@@ -724,7 +756,6 @@
     pad.addEventListener('touchcancel', endNote, { passive: false });
   });
 
-  // รองรับคีย์บอร์ดเลข 1-7
   window.addEventListener('keydown', (e) => {
     const num = parseInt(e.key);
     if (num >= 1 && num <= 7 && !e.repeat) {
