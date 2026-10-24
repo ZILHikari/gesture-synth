@@ -31,14 +31,16 @@ body {
 }
 
 /* ซ่อนตัว video ต้นฉบับ แต่คงขนาดไว้เพื่อให้ iOS Safari อ่านเฟรมได้ */
+/* แก้ไขส่วน #webcam ใน style.css */
 #webcam {
   position: absolute;
   top: 0;
   left: 0;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
+  width: 120px;
+  height: 90px;
+  opacity: 0.01;
   pointer-events: none;
+  z-index: 0;
 }
 
 #output-canvas {
