@@ -377,7 +377,7 @@
   }
 
   // =========================================================================
-  // 2. MEDIAPIPE HAND TRACKING (รองรับทั้งกล้องมือถือและคอมพิวเตอร์)
+  // 2. MEDIAPIPE HAND TRACKING (ฉบับแก้ไขให้ติดชัวร์บนมือถือทุกรุ่น)
   // =========================================================================
   const videoEl = document.getElementById('webcam');
   const canvasEl = document.getElementById('output-canvas');
@@ -385,11 +385,16 @@
   const statusDot = document.getElementById('status-dot');
   const statusText = document.getElementById('status-text');
 
+  // สร้าง Canvas จำลองขนาดเล็กสำหรับส่งภาพเข้า AI บนมือถือโดยเฉพาะ (แก้ปัญหาจอดำใน WebGL มือถือ)
+  const aiInputCanvas = document.createElement('canvas');
+  const aiInputCtx = aiInputCanvas.getContext('2d');
+
   let showSkeleton = true;
   let handsDetector = null;
   let cameraActive = false;
+  let isProcessing = false;
   let fingerHistory = [];
-  let manualHold = false; // ป้องกันกล้องตัดเสียงเวลาผู้ใช้กดปุ่มคอร์ดค้างไว้เอง
+  let manualHold = false;
 
   function countFingers(landmarks) {
     let count = 0;
@@ -402,7 +407,6 @@
       }
     }
 
-    // ตรวจจับนิ้วโป้งโดยเทียบระยะห่างจากโคนนิ้วก้อย
     const thumbTipToPinky = Math.hypot(
       landmarks[4].x - landmarks[17].x,
       landmarks[4].y - landmarks[17].y
@@ -426,8 +430,8 @@
     }
 
     ctx.save();
+    // ล้างแผ่นใส (ไม่ต้องวาดภาพกล้องซ้ำ เพราะ #webcam แสดงอยู่ด้านหลังแล้ว)
     ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
-    ctx.drawImage(results.image, 0, 0, canvasEl.width, canvasEl.height);
 
     let totalFingers = 0;
 
@@ -458,13 +462,12 @@
 
     ctx.restore();
 
-    if (manualHold) return; // ถ้ากำลังแตะปุ่มบนจอค้างไว้ ให้ยึดตามปุ่มที่แตะ
+    if (manualHold) return;
 
     if (totalFingers > 7) totalFingers = 7;
     fingerHistory.push(totalFingers);
     if (fingerHistory.length > 5) fingerHistory.shift();
 
-    // หาค่าฐานนิยม (Mode) เพื่อป้องกันเลขคอร์ดกระพริบ
     const counts = {};
     let modeCount = 0;
     let maxFreq = 0;
@@ -479,33 +482,24 @@
     triggerChord(modeCount);
   }
 
-  let isProcessing = false; // เพิ่มตัวแปรนี้ไว้ด้านบนฟังก์ชัน initCameraAndAI
-
   async function initCameraAndAI() {
     unlockAudioContext();
     document.getElementById('start-overlay').classList.add('hidden');
 
     try {
       statusDot.className = 'dot loading';
-      statusText.textContent = 'กำลังขอสิทธิ์กล้องและโหลดโมเดล AI...';
+      statusText.textContent = 'กำลังเปิดกล้องหน้า...';
 
-      // ตรวจสอบว่าเป็นจอมือถือหรือไม่ ถ้าใช่ให้ใช้ขนาด 640x480 เพื่อมุมมองที่กว้างขึ้นและไม่ค้าง
-      const isMobileScreen = window.innerWidth <= 768;
-
+      // ใช้ค่าเริ่มต้นของกล้องอุปกรณ์โดยไม่บังคับ 1280x720 เพื่อป้องกันมือถือปฏิเสธสตรีม
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: 'user',
-          width: { ideal: isMobileScreen ? 640 : 1280 },
-          height: { ideal: isMobileScreen ? 480 : 720 }
-        },
+        video: { facingMode: 'user' },
         audio: false
       });
 
       videoEl.srcObject = stream;
-      await new Promise((resolve) => {
-        videoEl.onloadedmetadata = () => resolve();
-      });
       await videoEl.play();
+
+      statusText.textContent = 'กำลังโหลด AI ตรวจจับนิ้วมือ...';
 
       handsDetector = new Hands({
         locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${file}`
@@ -513,24 +507,32 @@
 
       handsDetector.setOptions({
         maxNumHands: 2,
-        modelComplexity: 1,
-        minDetectionConfidence: 0.5, // ลดจาก 0.6 เป็น 0.5 เพื่อให้กล้องหน้ามือถือจับมือติดง่ายขึ้น
+        modelComplexity: 0, // ใช้ 0 เพื่อให้โหลดผ่านบนแรมมือถือทุกรุ่น
+        minDetectionConfidence: 0.5,
         minTrackingConfidence: 0.5
       });
 
       handsDetector.onResults(onHandResults);
-      await handsDetector.initialize();
       cameraActive = true;
 
-      function frameLoop() {
+      async function frameLoop() {
         if (!cameraActive) return;
 
         if (!isProcessing && videoEl.readyState >= 2 && videoEl.videoWidth > 0) {
           isProcessing = true;
-          handsDetector.send({ image: videoEl })
-            .then(() => { isProcessing = false; })
-            .catch(() => { isProcessing = false; });
+          try {
+            // วาดภาพลง Canvas ขนาดเล็กก่อนส่งให้ AI เพื่อให้มือถืออ่านพิกเซลได้ 100%
+            aiInputCanvas.width = videoEl.videoWidth;
+            aiInputCanvas.height = videoEl.videoHeight;
+            aiInputCtx.drawImage(videoEl, 0, 0, aiInputCanvas.width, aiInputCanvas.height);
+
+            await handsDetector.send({ image: aiInputCanvas });
+          } catch (err) {
+            statusText.textContent = 'AI Error: ' + err.message;
+          }
+          isProcessing = false;
         }
+
         requestAnimationFrame(frameLoop);
       }
       requestAnimationFrame(frameLoop);
@@ -538,7 +540,7 @@
     } catch (err) {
       console.error(err);
       statusDot.className = 'dot';
-      statusText.textContent = 'โหมดไร้กล้อง: แตะปุ่มคอร์ดด้านล่าง หรือกดเลข 1-7 ได้เลย';
+      statusText.textContent = 'เปิดกล้องไม่สำเร็จ: ' + err.message;
     }
   }
 
