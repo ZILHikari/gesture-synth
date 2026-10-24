@@ -4,11 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Gesture Synth - bôa Duvet Edition</title>
-  <!-- External CSS -->
-  <link rel="stylesheet" href="style.css">
-  <!-- MediaPipe Hands & Drawing Utils (Pinned Stable Versions) -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1620248257/drawing_utils.js" crossorigin="anonymous"></script>
+  <!-- External CSS (เพิ่ม ?v=3 เพื่อบังคับล้างแคชเบราว์เซอร์) -->
+  <link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 
@@ -127,7 +124,12 @@
   </div>
 </div>
 
-<script>
+<script type="module">
+  import {
+    HandLandmarker,
+    FilesetResolver
+  } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+
   // =========================================================================
   // 1. CHORD PRESETS & NATIVE WEB AUDIO SYNTH ENGINE
   // =========================================================================
@@ -136,65 +138,65 @@
       label: 'E Major (Duvet)',
       guide: '🎵 <b>bôa - duvet:</b> ชูนิ้ว <span>4 นิ้ว (Amaj7)</span> ➔ <span>3 นิ้ว (G#m7)</span> ➔ <span>6 นิ้ว (C#m7)</span> | จบอินโทร <span>5 นิ้ว (B7)</span>',
       chords: {
-        1: { roman: 'I',    name: 'Emaj7',  freqs: [164.81, 246.94, 311.13, 415.30] },         // E3, B3, D#4, G#4
-        2: { roman: 'ii',   name: 'F#m7',   freqs: [185.00, 220.00, 277.18, 329.63] },         // F#3, A3, C#4, E4
-        3: { roman: 'iii',  name: 'G#m7',   freqs: [207.65, 246.94, 311.13, 369.99] },         // G#3, B3, D#4, F#4
-        4: { roman: 'IV',   name: 'Amaj7',  freqs: [110.00, 164.81, 207.65, 277.18, 329.63] }, // A2, E3, G#3, C#4, E4
-        5: { roman: 'V',    name: 'B7',     freqs: [123.47, 185.00, 220.00, 311.13, 369.99] }, // B2, F#3, A3, D#4, F#4
-        6: { roman: 'vi',   name: 'C#m7',   freqs: [138.59, 207.65, 246.94, 329.63, 415.30] }, // C#3, G#3, B3, E4, G#4
-        7: { roman: 'vii°', name: 'D#m7b5', freqs: [155.56, 220.00, 277.18, 369.99] }          // D#3, A3, C#4, F#4
+        1: { roman: 'I',    name: 'Emaj7',  freqs: [164.81, 246.94, 311.13, 415.30] },
+        2: { roman: 'ii',   name: 'F#m7',   freqs: [185.00, 220.00, 277.18, 329.63] },
+        3: { roman: 'iii',  name: 'G#m7',   freqs: [207.65, 246.94, 311.13, 369.99] },
+        4: { roman: 'IV',   name: 'Amaj7',  freqs: [110.00, 164.81, 207.65, 277.18, 329.63] },
+        5: { roman: 'V',    name: 'B7',     freqs: [123.47, 185.00, 220.00, 311.13, 369.99] },
+        6: { roman: 'vi',   name: 'C#m7',   freqs: [138.59, 207.65, 246.94, 329.63, 415.30] },
+        7: { roman: 'vii°', name: 'D#m7b5', freqs: [155.56, 220.00, 277.18, 369.99] }
       }
     },
     c_major: {
       label: 'C Major (Pop)',
       guide: '🎹 <b>C Major Progression:</b> ลองชูนิ้ว <span>1 นิ้ว (Cmaj7)</span> ➔ <span>5 นิ้ว (G7)</span> ➔ <span>6 นิ้ว (Am7)</span> ➔ <span>4 นิ้ว (Fmaj7)</span>',
       chords: {
-        1: { roman: 'I',    name: 'Cmaj7',  freqs: [130.81, 196.00, 246.94, 329.63] },         // C3, G3, B3, E4
-        2: { roman: 'ii',   name: 'Dm7',    freqs: [146.83, 174.61, 220.00, 261.63] },         // D3, F3, A3, C4
-        3: { roman: 'iii',  name: 'Em7',    freqs: [164.81, 196.00, 246.94, 293.66] },         // E3, G3, B3, D4
-        4: { roman: 'IV',   name: 'Fmaj7',  freqs: [174.61, 220.00, 261.63, 329.63] },         // F3, A3, C4, E4
-        5: { roman: 'V',    name: 'G7',     freqs: [196.00, 246.94, 293.66, 349.23] },         // G3, B3, D4, F4
-        6: { roman: 'vi',   name: 'Am7',    freqs: [110.00, 164.81, 220.00, 261.63, 329.63] }, // A2, E3, A3, C4, E4
-        7: { roman: 'vii°', name: 'Bm7b5',  freqs: [123.47, 174.61, 220.00, 293.66] }          // B2, F3, A3, D4
+        1: { roman: 'I',    name: 'Cmaj7',  freqs: [130.81, 196.00, 246.94, 329.63] },
+        2: { roman: 'ii',   name: 'Dm7',    freqs: [146.83, 174.61, 220.00, 261.63] },
+        3: { roman: 'iii',  name: 'Em7',    freqs: [164.81, 196.00, 246.94, 293.66] },
+        4: { roman: 'IV',   name: 'Fmaj7',  freqs: [174.61, 220.00, 261.63, 329.63] },
+        5: { roman: 'V',    name: 'G7',     freqs: [196.00, 246.94, 293.66, 349.23] },
+        6: { roman: 'vi',   name: 'Am7',    freqs: [110.00, 164.81, 220.00, 261.63, 329.63] },
+        7: { roman: 'vii°', name: 'Bm7b5',  freqs: [123.47, 174.61, 220.00, 293.66] }
       }
     },
     g_major: {
       label: 'G Major (Folk)',
       guide: '🎸 <b>G Major Progression:</b> ลองชูนิ้ว <span>1 นิ้ว (Gmaj7)</span> ➔ <span>6 นิ้ว (Em7)</span> ➔ <span>4 นิ้ว (Cmaj7)</span> ➔ <span>5 นิ้ว (D7)</span>',
       chords: {
-        1: { roman: 'I',    name: 'Gmaj7',  freqs: [196.00, 246.94, 293.66, 369.99] },         // G3, B3, D4, F#4
-        2: { roman: 'ii',   name: 'Am7',    freqs: [110.00, 164.81, 220.00, 261.63, 329.63] }, // A2, E3, A3, C4, E4
-        3: { roman: 'iii',  name: 'Bm7',    freqs: [123.47, 185.00, 220.00, 293.66] },         // B2, F#3, A3, D4
-        4: { roman: 'IV',   name: 'Cmaj7',  freqs: [130.81, 196.00, 246.94, 329.63] },         // C3, G3, B3, E4
-        5: { roman: 'V',    name: 'D7',     freqs: [146.83, 185.00, 220.00, 261.63] },         // D3, F#3, A3, C4
-        6: { roman: 'vi',   name: 'Em7',    freqs: [164.81, 196.00, 246.94, 293.66] },         // E3, G3, B3, D4
-        7: { roman: 'vii°', name: 'F#m7b5', freqs: [185.00, 220.00, 261.63, 329.63] }          // F#3, A3, C4, E4
+        1: { roman: 'I',    name: 'Gmaj7',  freqs: [196.00, 246.94, 293.66, 369.99] },
+        2: { roman: 'ii',   name: 'Am7',    freqs: [110.00, 164.81, 220.00, 261.63, 329.63] },
+        3: { roman: 'iii',  name: 'Bm7',    freqs: [123.47, 185.00, 220.00, 293.66] },
+        4: { roman: 'IV',   name: 'Cmaj7',  freqs: [130.81, 196.00, 246.94, 329.63] },
+        5: { roman: 'V',    name: 'D7',     freqs: [146.83, 185.00, 220.00, 261.63] },
+        6: { roman: 'vi',   name: 'Em7',    freqs: [164.81, 196.00, 246.94, 293.66] },
+        7: { roman: 'vii°', name: 'F#m7b5', freqs: [185.00, 220.00, 261.63, 329.63] }
       }
     },
     f_major: {
       label: 'F Major (R&B)',
       guide: '☁️ <b>F Major R&B:</b> ลองชูนิ้ว <span>4 นิ้ว (Bbmaj7)</span> ➔ <span>3 นิ้ว (Am7)</span> ➔ <span>2 นิ้ว (Gm7)</span> ➔ <span>1 นิ้ว (Fmaj7)</span>',
       chords: {
-        1: { roman: 'I',    name: 'Fmaj7',  freqs: [174.61, 220.00, 261.63, 329.63] },         // F3, A3, C4, E4
-        2: { roman: 'ii',   name: 'Gm7',    freqs: [196.00, 233.08, 293.66, 349.23] },         // G3, Bb3, D4, F4
-        3: { roman: 'iii',  name: 'Am7',    freqs: [110.00, 164.81, 220.00, 261.63, 329.63] }, // A2, E3, A3, C4, E4
-        4: { roman: 'IV',   name: 'Bbmaj7', freqs: [116.54, 174.61, 220.00, 293.66] },         // Bb2, F3, A3, D4
-        5: { roman: 'V',    name: 'C7',     freqs: [130.81, 164.81, 196.00, 233.08] },         // C3, E3, G3, Bb3
-        6: { roman: 'vi',   name: 'Dm7',    freqs: [146.83, 174.61, 220.00, 261.63] },         // D3, F3, A3, C4
-        7: { roman: 'vii°', name: 'Em7b5',  freqs: [164.81, 196.00, 233.08, 293.66] }          // E3, G3, Bb3, D4
+        1: { roman: 'I',    name: 'Fmaj7',  freqs: [174.61, 220.00, 261.63, 329.63] },
+        2: { roman: 'ii',   name: 'Gm7',    freqs: [196.00, 233.08, 293.66, 349.23] },
+        3: { roman: 'iii',  name: 'Am7',    freqs: [110.00, 164.81, 220.00, 261.63, 329.63] },
+        4: { roman: 'IV',   name: 'Bbmaj7', freqs: [116.54, 174.61, 220.00, 293.66] },
+        5: { roman: 'V',    name: 'C7',     freqs: [130.81, 164.81, 196.00, 233.08] },
+        6: { roman: 'vi',   name: 'Dm7',    freqs: [146.83, 174.61, 220.00, 261.63] },
+        7: { roman: 'vii°', name: 'Em7b5',  freqs: [164.81, 196.00, 233.08, 293.66] }
       }
     },
     a_minor: {
       label: 'A Minor (Lo-Fi)',
       guide: '🌙 <b>A Minor Lo-Fi:</b> ลองชูนิ้ว <span>1 นิ้ว (Am7)</span> ➔ <span>4 นิ้ว (Dm7)</span> ➔ <span>7 นิ้ว (G7)</span> ➔ <span>3 นิ้ว (Cmaj7)</span>',
       chords: {
-        1: { roman: 'i',    name: 'Am7',    freqs: [110.00, 164.81, 220.00, 261.63, 329.63] }, // A2, E3, A3, C4, E4
-        2: { roman: 'ii°',  name: 'Bm7b5',  freqs: [123.47, 174.61, 220.00, 293.66] },         // B2, F3, A3, D4
-        3: { roman: 'III',  name: 'Cmaj7',  freqs: [130.81, 196.00, 246.94, 329.63] },         // C3, G3, B3, E4
-        4: { roman: 'iv',   name: 'Dm7',    freqs: [146.83, 174.61, 220.00, 261.63] },         // D3, F3, A3, C4
-        5: { roman: 'v',    name: 'Em7',    freqs: [164.81, 196.00, 246.94, 293.66] },         // E3, G3, B3, D4
-        6: { roman: 'VI',   name: 'Fmaj7',  freqs: [174.61, 220.00, 261.63, 329.63] },         // F3, A3, C4, E4
-        7: { roman: 'VII',  name: 'G7',     freqs: [196.00, 246.94, 293.66, 349.23] }          // G3, B3, D4, F4
+        1: { roman: 'i',    name: 'Am7',    freqs: [110.00, 164.81, 220.00, 261.63, 329.63] },
+        2: { roman: 'ii°',  name: 'Bm7b5',  freqs: [123.47, 174.61, 220.00, 293.66] },
+        3: { roman: 'III',  name: 'Cmaj7',  freqs: [130.81, 196.00, 246.94, 329.63] },
+        4: { roman: 'iv',   name: 'Dm7',    freqs: [146.83, 174.61, 220.00, 261.63] },
+        5: { roman: 'v',    name: 'Em7',    freqs: [164.81, 196.00, 246.94, 293.66] },
+        6: { roman: 'VI',   name: 'Fmaj7',  freqs: [174.61, 220.00, 261.63, 329.63] },
+        7: { roman: 'VII',  name: 'G7',     freqs: [196.00, 246.94, 293.66, 349.23] }
       }
     }
   };
@@ -208,7 +210,6 @@
   let activeVoices = [];
   let currentChordIndex = 0;
 
-  // อัปเดตตัวเลขโรมันและชื่อคอร์ดบนปุ่ม .pad ทั้ง 7 ปุ่มเมื่อเปลี่ยนชุดคอร์ด
   function updatePadLabels() {
     document.querySelectorAll('.pad').forEach(pad => {
       const finger = parseInt(pad.getAttribute('data-finger'));
@@ -228,14 +229,10 @@
     const preset = CHORD_PRESETS[presetKey];
     CHORD_MAP = preset.chords;
 
-    // อัปเดตปุ่มมุมซ้ายบนและไกด์ด้านล่าง
     document.getElementById('current-preset-label').textContent = preset.label;
     document.getElementById('guide-pill-text').innerHTML = preset.guide;
-
-    // อัปเดตชื่อคอร์ดบนปุ่ม .pad ทุกปุ่ม
     updatePadLabels();
 
-    // รีเซ็ตเสียงที่ค้างอยู่แล้วเล่นคอร์ดใหม่ถ้ามีนิ้วที่กดค้างไว้
     const prevChord = currentChordIndex;
     triggerChord(0);
     if (prevChord > 0) {
@@ -243,7 +240,6 @@
     }
   }
 
-  // ปลดล็อกเสียงสำหรับ iOS Safari / Android Chrome / Desktop ทุกเบราว์เซอร์
   function unlockAudioContext() {
     if (!audioCtx) {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -255,7 +251,6 @@
       analyser = audioCtx.createAnalyser();
       analyser.fftSize = 256;
 
-      // สร้าง Delay Reverb จำลองเสียง Lush Dreamy Pad
       const delay = audioCtx.createDelay();
       delay.delayTime.value = 0.18;
       const feedback = audioCtx.createGain();
@@ -278,7 +273,6 @@
       audioCtx.resume();
     }
 
-    // เล่นบัฟเฟอร์เงียบ 1 ตัวอย่างเพื่อบังคับปลดล็อกฮาร์ดแวร์เสียงบน iOS
     const buffer = audioCtx.createBuffer(1, 1, 22050);
     const source = audioCtx.createBufferSource();
     source.buffer = buffer;
@@ -321,7 +315,6 @@
       filter.type = 'lowpass';
       filter.frequency.setValueAtTime(1950, now);
 
-      // ใช้ 3 Oscillators ซ้อนกัน (Detuned Sawtooth + Triangle) ให้มิติเสียงแบบ Lush Pad ในคลิป
       const detunes = [-9, 0, 9];
       const oscs = detunes.map((detune, idx) => {
         const osc = audioCtx.createOscillator();
@@ -377,7 +370,7 @@
   }
 
   // =========================================================================
-  // 2. MEDIAPIPE HAND TRACKING (ฉบับแก้ไขให้ติดชัวร์บนมือถือทุกรุ่น)
+  // 2. MEDIAPIPE TASKS-VISION HAND LANDMARKER (รองรับทั้งมือถือและคอมพิวเตอร์ 100%)
   // =========================================================================
   const videoEl = document.getElementById('webcam');
   const canvasEl = document.getElementById('output-canvas');
@@ -385,14 +378,20 @@
   const statusDot = document.getElementById('status-dot');
   const statusText = document.getElementById('status-text');
 
-  // สร้าง Canvas จำลองขนาดเล็กสำหรับส่งภาพเข้า AI บนมือถือโดยเฉพาะ (แก้ปัญหาจอดำใน WebGL มือถือ)
-  const aiInputCanvas = document.createElement('canvas');
-  const aiInputCtx = aiInputCanvas.getContext('2d');
+  // เส้นเชื่อมข้อต่อฝ่ามือ 21 จุด
+  const HAND_CONNECTIONS = [
+    [0,1],[1,2],[2,3],[3,4],
+    [0,5],[5,6],[6,7],[7,8],
+    [5,9],[9,10],[10,11],[11,12],
+    [9,13],[13,14],[14,15],[15,16],
+    [13,17],[17,18],[18,19],[19,20],
+    [0,17]
+  ];
 
   let showSkeleton = true;
-  let handsDetector = null;
+  let handLandmarker = null;
   let cameraActive = false;
-  let isProcessing = false;
+  let lastVideoTime = -1;
   let fingerHistory = [];
   let manualHold = false;
 
@@ -423,63 +422,92 @@
     return count;
   }
 
-  function onHandResults(results) {
-    if (canvasEl.width !== videoEl.videoWidth || canvasEl.height !== videoEl.videoHeight) {
-      canvasEl.width = videoEl.videoWidth || 640;
-      canvasEl.height = videoEl.videoHeight || 480;
+  function drawHandSkeleton(landmarks, w, h) {
+    ctx.strokeStyle = '#2ed573';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+
+    for (const [startIdx, endIdx] of HAND_CONNECTIONS) {
+      const p1 = landmarks[startIdx];
+      const p2 = landmarks[endIdx];
+      ctx.beginPath();
+      ctx.moveTo(p1.x * w, p1.y * h);
+      ctx.lineTo(p2.x * w, p2.y * h);
+      ctx.stroke();
     }
 
-    ctx.save();
-    // ล้างแผ่นใส (ไม่ต้องวาดภาพกล้องซ้ำ เพราะ #webcam แสดงอยู่ด้านหลังแล้ว)
-    ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+    for (const pt of landmarks) {
+      ctx.beginPath();
+      ctx.arc(pt.x * w, pt.y * h, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#ff4757';
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#ffffff';
+      ctx.stroke();
+    }
+  }
 
-    let totalFingers = 0;
+  function renderLoop() {
+    if (!cameraActive) return;
 
-    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-      for (const landmarks of results.multiHandLandmarks) {
-        totalFingers += countFingers(landmarks);
+    if (videoEl.readyState >= 2 && videoEl.videoWidth > 0) {
+      if (canvasEl.width !== videoEl.videoWidth || canvasEl.height !== videoEl.videoHeight) {
+        canvasEl.width = videoEl.videoWidth;
+        canvasEl.height = videoEl.videoHeight;
+      }
 
-        if (showSkeleton) {
-          drawConnectors(ctx, landmarks, HAND_CONNECTIONS, {
-            color: '#2ed573',
-            lineWidth: 4
-          });
-          drawLandmarks(ctx, landmarks, {
-            color: '#ffffff',
-            fillColor: '#ff4757',
-            lineWidth: 2,
-            radius: 4
-          });
+      // 1. วาดภาพจากกล้องลงบน Canvas ทุกเฟรม (ทำให้ทั้งคอมและมือถือเห็นภาพกล้อง 100%)
+      ctx.save();
+      ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+      ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
+
+      // 2. ส่งเฟรมให้ HandLandmarker ตรวจจับนิ้วมือ
+      if (handLandmarker) {
+        let results = null;
+        try {
+          results = handLandmarker.detectForVideo(videoEl, performance.now());
+        } catch (e) {}
+
+        let totalFingers = 0;
+
+        if (results && results.landmarks && results.landmarks.length > 0) {
+          for (const landmarks of results.landmarks) {
+            totalFingers += countFingers(landmarks);
+            if (showSkeleton) {
+              drawHandSkeleton(landmarks, canvasEl.width, canvasEl.height);
+            }
+          }
+
+          statusDot.className = 'dot active';
+          statusText.textContent = `ตรวจพบมือ (${results.landmarks.length} ข้าง) | ชู: ${totalFingers} นิ้ว`;
+        } else {
+          statusDot.className = 'dot loading';
+          statusText.textContent = 'กล้องพร้อมแล้ว - ชูนิ้วหน้ากล้องได้เลย 🖐️';
+        }
+
+        if (!manualHold) {
+          if (totalFingers > 7) totalFingers = 7;
+          fingerHistory.push(totalFingers);
+          if (fingerHistory.length > 5) fingerHistory.shift();
+
+          const counts = {};
+          let modeCount = 0;
+          let maxFreq = 0;
+          for (const v of fingerHistory) {
+            counts[v] = (counts[v] || 0) + 1;
+            if (counts[v] > maxFreq) {
+              maxFreq = counts[v];
+              modeCount = v;
+            }
+          }
+          triggerChord(modeCount);
         }
       }
 
-      statusDot.className = 'dot active';
-      statusText.textContent = `ตรวจพบมือ (${results.multiHandLandmarks.length} ข้าง) | ชู: ${totalFingers} นิ้ว`;
-    } else {
-      statusDot.className = 'dot loading';
-      statusText.textContent = 'กล้องพร้อมแล้ว - ชูนิ้วหน้ากล้องได้เลย 🖐️';
+      ctx.restore();
     }
 
-    ctx.restore();
-
-    if (manualHold) return;
-
-    if (totalFingers > 7) totalFingers = 7;
-    fingerHistory.push(totalFingers);
-    if (fingerHistory.length > 5) fingerHistory.shift();
-
-    const counts = {};
-    let modeCount = 0;
-    let maxFreq = 0;
-    for (const v of fingerHistory) {
-      counts[v] = (counts[v] || 0) + 1;
-      if (counts[v] > maxFreq) {
-        maxFreq = counts[v];
-        modeCount = v;
-      }
-    }
-
-    triggerChord(modeCount);
+    requestAnimationFrame(renderLoop);
   }
 
   async function initCameraAndAI() {
@@ -488,59 +516,63 @@
 
     try {
       statusDot.className = 'dot loading';
-      statusText.textContent = 'กำลังเปิดกล้องหน้า...';
+      statusText.textContent = 'กำลังขอสิทธิ์เปิดกล้อง...';
 
-      // ใช้ค่าเริ่มต้นของกล้องอุปกรณ์โดยไม่บังคับ 1280x720 เพื่อป้องกันมือถือปฏิเสธสตรีม
+      const isMobileScreen = window.innerWidth <= 768;
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user' },
+        video: {
+          facingMode: 'user',
+          width: { ideal: isMobileScreen ? 640 : 1280 },
+          height: { ideal: isMobileScreen ? 480 : 720 }
+        },
         audio: false
       });
 
       videoEl.srcObject = stream;
       await videoEl.play();
 
-      statusText.textContent = 'กำลังโหลด AI ตรวจจับนิ้วมือ...';
-
-      handsDetector = new Hands({
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${file}`
-      });
-
-      handsDetector.setOptions({
-        maxNumHands: 2,
-        modelComplexity: 0, // ใช้ 0 เพื่อให้โหลดผ่านบนแรมมือถือทุกรุ่น
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5
-      });
-
-      handsDetector.onResults(onHandResults);
       cameraActive = true;
+      requestAnimationFrame(renderLoop);
 
-      async function frameLoop() {
-        if (!cameraActive) return;
+      statusText.textContent = 'กำลังโหลดโมเดล AI ตรวจจับมือ (รอสักครู่)...';
 
-        if (!isProcessing && videoEl.readyState >= 2 && videoEl.videoWidth > 0) {
-          isProcessing = true;
-          try {
-            // วาดภาพลง Canvas ขนาดเล็กก่อนส่งให้ AI เพื่อให้มือถืออ่านพิกเซลได้ 100%
-            aiInputCanvas.width = videoEl.videoWidth;
-            aiInputCanvas.height = videoEl.videoHeight;
-            aiInputCtx.drawImage(videoEl, 0, 0, aiInputCanvas.width, aiInputCanvas.height);
+      const vision = await FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+      );
 
-            await handsDetector.send({ image: aiInputCanvas });
-          } catch (err) {
-            statusText.textContent = 'AI Error: ' + err.message;
-          }
-          isProcessing = false;
-        }
-
-        requestAnimationFrame(frameLoop);
+      // ลองโหลดด้วย GPU ก่อน ถ้ามือถือไม่รองรับให้สลับเป็น CPU อัตโนมัติ
+      try {
+        handLandmarker = await HandLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+            delegate: "GPU"
+          },
+          runningMode: "VIDEO",
+          numHands: 2,
+          minHandDetectionConfidence: 0.5,
+          minHandPresenceConfidence: 0.5,
+          minTrackingConfidence: 0.5
+        });
+      } catch (gpuErr) {
+        handLandmarker = await HandLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+            delegate: "CPU"
+          },
+          runningMode: "VIDEO",
+          numHands: 2,
+          minHandDetectionConfidence: 0.5,
+          minHandPresenceConfidence: 0.5,
+          minTrackingConfidence: 0.5
+        });
       }
-      requestAnimationFrame(frameLoop);
+
+      statusText.textContent = 'กล้องพร้อมแล้ว - ชูนิ้วหน้ากล้องได้เลย 🖐️';
 
     } catch (err) {
       console.error(err);
       statusDot.className = 'dot';
-      statusText.textContent = 'เปิดกล้องไม่สำเร็จ: ' + err.message;
+      statusText.textContent = 'โหมดไร้กล้อง: แตะปุ่มคอร์ดด้านล่าง หรือกดเลข 1-7 ได้เลย';
     }
   }
 
@@ -568,7 +600,6 @@
     });
   });
 
-  // ปิดเมนูเมื่อคลิกพื้นที่อื่นบนหน้าจอ
   window.addEventListener('click', () => {
     chordMenuDropdown.classList.remove('show');
     chordMenuBtn.classList.remove('open');
@@ -581,7 +612,6 @@
     document.getElementById('start-overlay').classList.add('hidden');
     statusDot.className = 'dot active';
     statusText.textContent = 'โหมดแตะหน้าจอ / คีย์บอร์ด (กดปุ่ม I - vii° ด้านล่างได้เลย)';
-    // เล่นคอร์ด IV สั้นๆ เพื่อยืนยันว่าเสียงออกแล้ว
     triggerChord(4);
     setTimeout(() => triggerChord(0), 600);
   });
@@ -603,7 +633,6 @@
     skeletonBtn.classList.toggle('active-btn', showSkeleton);
   });
 
-  // รองรับทั้งเมาส์และหน้าจอสัมผัส (Pointer & Touch Events)
   document.querySelectorAll('.pad').forEach(pad => {
     const finger = parseInt(pad.getAttribute('data-finger'));
 
@@ -629,7 +658,6 @@
     pad.addEventListener('touchcancel', endNote, { passive: false });
   });
 
-  // รองรับคีย์บอร์ดเลข 1-7
   window.addEventListener('keydown', (e) => {
     const num = parseInt(e.key);
     if (num >= 1 && num <= 7 && !e.repeat) {
