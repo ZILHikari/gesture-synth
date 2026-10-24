@@ -479,6 +479,8 @@
     triggerChord(modeCount);
   }
 
+  let isProcessing = false; // เพิ่มตัวแปรนี้ไว้ด้านบนฟังก์ชัน initCameraAndAI
+
   async function initCameraAndAI() {
     unlockAudioContext();
     document.getElementById('start-overlay').classList.add('hidden');
@@ -487,16 +489,22 @@
       statusDot.className = 'dot loading';
       statusText.textContent = 'กำลังขอสิทธิ์กล้องและโหลดโมเดล AI...';
 
+      // ตรวจสอบว่าเป็นจอมือถือหรือไม่ ถ้าใช่ให้ใช้ขนาด 640x480 เพื่อมุมมองที่กว้างขึ้นและไม่ค้าง
+      const isMobileScreen = window.innerWidth <= 768;
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: 'user',
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
+          width: { ideal: isMobileScreen ? 640 : 1280 },
+          height: { ideal: isMobileScreen ? 480 : 720 }
         },
         audio: false
       });
 
       videoEl.srcObject = stream;
+      await new Promise((resolve) => {
+        videoEl.onloadedmetadata = () => resolve();
+      });
       await videoEl.play();
 
       handsDetector = new Hands({
@@ -506,22 +514,24 @@
       handsDetector.setOptions({
         maxNumHands: 2,
         modelComplexity: 1,
-        minDetectionConfidence: 0.6,
-        minTrackingConfidence: 0.6
+        minDetectionConfidence: 0.5, // ลดจาก 0.6 เป็น 0.5 เพื่อให้กล้องหน้ามือถือจับมือติดง่ายขึ้น
+        minTrackingConfidence: 0.5
       });
 
       handsDetector.onResults(onHandResults);
+      await handsDetector.initialize();
       cameraActive = true;
 
-      async function frameLoop() {
-        if (cameraActive && videoEl.readyState >= 2) {
-          try {
-            await handsDetector.send({ image: videoEl });
-          } catch (e) {}
+      function frameLoop() {
+        if (!cameraActive) return;
+
+        if (!isProcessing && videoEl.readyState >= 2 && videoEl.videoWidth > 0) {
+          isProcessing = true;
+          handsDetector.send({ image: videoEl })
+            .then(() => { isProcessing = false; })
+            .catch(() => { isProcessing = false; });
         }
-        if (cameraActive) {
-          requestAnimationFrame(frameLoop);
-        }
+        requestAnimationFrame(frameLoop);
       }
       requestAnimationFrame(frameLoop);
 
